@@ -1,8 +1,20 @@
 const crypto = require("crypto");
-const sgMail = require("@sendgrid/mail");
+const nodemailer = require("nodemailer");
 const supabase = require("./supabase");
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY || "");
+// Create Nodemailer transporter
+let transporter;
+function initTransporter() {
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: process.env.SMTP_PORT || 587,
+    secure: false, // true for 465, false for other ports
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+}
 
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
@@ -34,7 +46,7 @@ async function sendOtp(email, agreementId) {
     const lastSent = new Date(recent[0].created_at).getTime();
     if (Date.now() - lastSent < OTP_COOLDOWN_MS) {
       const waitSec = Math.ceil(
-        (OTP_COOLDOWN_MS - (Date.now() - lastSent)) / 1000
+        (OTP_COOLDOWN_MS - (Date.now() - lastSent)) / 1000,
       );
       return { error: `Please wait ${waitSec}s before requesting a new code.` };
     }
@@ -58,11 +70,15 @@ async function sendOtp(email, agreementId) {
     return { error: "Failed to create verification code." };
   }
 
-  // Send email via SendGrid
+  // Send email via Nodemailer
   try {
-    await sgMail.send({
+    if (!transporter) {
+      initTransporter();
+    }
+
+    await transporter.sendMail({
       to: email,
-      from: process.env.SENDGRID_FROM_EMAIL || "noreply@handshake.app",
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
       subject: "Your Handshake Verification Code",
       text: `Your verification code is: ${otp}\n\nThis code expires in 10 minutes. Do not share it with anyone.`,
       html: `<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:24px;">
@@ -73,7 +89,7 @@ async function sendOtp(email, agreementId) {
       </div>`,
     });
   } catch (emailErr) {
-    console.error("SendGrid error:", emailErr.message);
+    console.error("Nodemailer error:", emailErr.message);
     return { error: "Failed to send verification email." };
   }
 
