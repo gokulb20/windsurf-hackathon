@@ -1,7 +1,7 @@
 {
   "name": "windsurf-hackathon",
   "version": "1.0.0",
-  "description": "AI Chat App - React + Node.js + Google Gemini",
+  "description": "Handshake — Legally binding P2P agreements, as easy as a handshake",
   "scripts": {
     "install:all": "npm install --prefix backend && npm install --prefix frontend",
     "dev:backend": "npm run dev --prefix backend",
